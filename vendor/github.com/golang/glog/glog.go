@@ -105,9 +105,12 @@ const (
 	numSeverity = 4
 )
 
-const severityChar = "IWEF"
-
-//const severityChar = ""
+const (
+	flushInterval = 30 * time.Second
+	severityChar  = "IWEF"
+	bufferSize    = 256 * 1024
+	digits        = "0123456789"
+)
 
 var severityName = []string{
 	infoLog:    "INFO",
@@ -590,8 +593,6 @@ func (l *loggingT) formatHeader(s severity, file string, line int) *buffer {
 
 // Some custom tiny helper functions to print the log header efficiently.
 
-const digits = "0123456789"
-
 // twoDigits formats a zero-prefixed two-digit integer at buf.tmp[i].
 func (buf *buffer) twoDigits(i, d int) {
 	buf.tmp[i+1] = digits[d%10]
@@ -682,10 +683,12 @@ func (l *loggingT) output(s severity, buf *buffer, file string, line int, alsoTo
 		os.Stderr.Write([]byte("ERROR: logging before flag.Parse: "))
 		os.Stderr.Write(data)
 	} else if l.toStderr {
-		os.Stderr.Write(data)
+		//os.Stderr.Write(data)
+		os.Stdout.Write(data)
 	} else {
 		if alsoToStderr || l.alsoToStderr || s >= l.stderrThreshold.get() {
-			os.Stderr.Write(data)
+			//os.Stderr.Write(data)
+			os.Stdout.Write(data)
 		}
 		if l.file[s] == nil {
 			if err := l.createFiles(s); err != nil {
@@ -704,7 +707,7 @@ func (l *loggingT) output(s severity, buf *buffer, file string, line int, alsoTo
 			l.file[warningLog].Write(data)
 			fallthrough
 		case infoLog:*/
-			l.file[infoLog].Write(data)
+		l.file[infoLog].Write(data)
 		//}
 	}
 	if s == fatalLog {
@@ -834,7 +837,7 @@ func (sb *syncBuffer) rotateFile(now time.Time) error {
 		sb.file.Close()
 	}
 	var err error
-	sb.file, _, err = create(severityName[sb.sev], now)
+	sb.file, _, err = create(now)
 	sb.nbytes = 0
 	if err != nil {
 		return err
@@ -856,8 +859,6 @@ func (sb *syncBuffer) rotateFile(now time.Time) error {
 // bufferSize sizes the buffer associated with each log file. It's large
 // so that log records can accumulate without the logging thread blocking
 // on disk I/O. The flushDaemon will block instead.
-const bufferSize = 256 * 1024
-
 
 // createFiles creates all the log files for severity from sev down to infoLog.
 // l.mu is held.
@@ -866,20 +867,18 @@ func (l *loggingT) createFiles(sev severity) error {
 	// Files are created in decreasing severity order, so as soon as we find one
 	// has already been created, we can stop.
 	//for s := sev; s >= infoLog && l.file[s] == nil; s-- {
-	s:=infoLog
-		sb := &syncBuffer{
-			logger: l,
-			sev:    s,
-		}
-		if err := sb.rotateFile(now); err != nil {
-			return err
-		}
-		l.file[s] = sb
+	s := infoLog
+	sb := &syncBuffer{
+		logger: l,
+		sev:    s,
+	}
+	if err := sb.rotateFile(now); err != nil {
+		return err
+	}
+	l.file[s] = sb
 	//}
 	return nil
 }
-
-const flushInterval = 30 * time.Second
 
 // flushDaemon periodically flushes the log file buffers.
 func (l *loggingT) flushDaemon() {
