@@ -54,7 +54,7 @@ func (f *flushBuffer) Sync() error {
 	return nil
 }
 
-// swap sets the glog writers and returns the old array.
+// swap sets the log writers and returns the old array.
 func (l *loggingT) swap(writers [numSeverity]flushSyncWriter) (old [numSeverity]flushSyncWriter) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -65,17 +65,17 @@ func (l *loggingT) swap(writers [numSeverity]flushSyncWriter) (old [numSeverity]
 	return
 }
 
-// newBuffers sets the glog writers to all new byte buffers and returns the old array.
+// newBuffers sets the log writers to all new byte buffers and returns the old array.
 func (l *loggingT) newBuffers() [numSeverity]flushSyncWriter {
 	return l.swap([numSeverity]flushSyncWriter{new(flushBuffer), new(flushBuffer), new(flushBuffer), new(flushBuffer)})
 }
 
-// contents returns the specified glog value as a string.
+// contents returns the specified log value as a string.
 func contents(s severity) string {
 	return logging.file[s].(*flushBuffer).String()
 }
 
-// contains reports whether the string is contained in the glog.
+// contains reports whether the string is contained in the log.
 func contains(s severity, str string, t *testing.T) bool {
 	return strings.Contains(contents(s), str)
 }
@@ -156,7 +156,7 @@ func TestCopyStandardLogToPanic(t *testing.T) {
 	CopyStandardLogTo("LOG")
 }
 
-// Test that using the standard glog package logs to INFO.
+// Test that using the standard log package logs to INFO.
 func TestStandardLog(t *testing.T) {
 	setFlags()
 	defer logging.swap(logging.newBuffers())
@@ -183,18 +183,18 @@ func TestHeader(t *testing.T) {
 	format := "I0102 15:04:05.067890    1234 glog_test.go:%d] test\n"
 	n, err := fmt.Sscanf(contents(infoLog), format, &line)
 	if n != 1 || err != nil {
-		t.Errorf("glog format error: %d elements, error %s:\n%s", n, err, contents(infoLog))
+		t.Errorf("log format error: %d elements, error %s:\n%s", n, err, contents(infoLog))
 	}
 	// Scanf treats multiple spaces as equivalent to a single space,
 	// so check for correct space-padding also.
 	want := fmt.Sprintf(format, line)
 	if contents(infoLog) != want {
-		t.Errorf("glog format error: got:\n\t%q\nwant:\t%q", contents(infoLog), want)
+		t.Errorf("log format error: got:\n\t%q\nwant:\t%q", contents(infoLog), want)
 	}
 }
 
-// Test that an Error glog goes to Warning and Info.
-// Even in the Info glog, the source character will be E, so the data should
+// Test that an Error log goes to Warning and Info.
+// Even in the Info log, the source character will be E, so the data should
 // all be identical.
 func TestError(t *testing.T) {
 	setFlags()
@@ -215,8 +215,8 @@ func TestError(t *testing.T) {
 	}
 }
 
-// Test that a Warning glog goes to Info.
-// Even in the Info glog, the source character will be W, so the data should
+// Test that a Warning log goes to Info.
+// Even in the Info log, the source character will be W, so the data should
 // all be identical.
 func TestWarning(t *testing.T) {
 	setFlags()
@@ -234,7 +234,7 @@ func TestWarning(t *testing.T) {
 	}
 }
 
-// Test that a V glog goes to Info.
+// Test that a V log goes to Info.
 func TestV(t *testing.T) {
 	setFlags()
 	defer logging.swap(logging.newBuffers())
@@ -249,7 +249,7 @@ func TestV(t *testing.T) {
 	}
 }
 
-// Test that a vmodule enables a glog in this file.
+// Test that a vmodule enables a log in this file.
 func TestVmoduleOn(t *testing.T) {
 	setFlags()
 	defer logging.swap(logging.newBuffers())
@@ -273,7 +273,7 @@ func TestVmoduleOn(t *testing.T) {
 	}
 }
 
-// Test that a vmodule of another file does not enable a glog in this file.
+// Test that a vmodule of another file does not enable a log in this file.
 func TestVmoduleOff(t *testing.T) {
 	setFlags()
 	defer logging.swap(logging.newBuffers())
@@ -350,10 +350,10 @@ func TestRollover(t *testing.T) {
 		t.Fatalf("info has error after big write: %v", err)
 	}
 
-	// Make sure the next glog file gets a file name with a different
+	// Make sure the next log file gets a file name with a different
 	// time stamp.
 	//
-	// TODO: determine whether we need to support subsecond glog
+	// TODO: determine whether we need to support subsecond log
 	// rotation.  C++ does not appear to handle this case (nor does it
 	// handle Daylight Savings Time properly).
 	time.Sleep(1 * time.Second)
@@ -396,14 +396,14 @@ func TestLogBacktraceAt(t *testing.T) {
 	}
 	numAppearances := strings.Count(contents(infoLog), infoLine)
 	if numAppearances < 2 {
-		// Need 2 appearances, one in the glog header and one in the trace:
+		// Need 2 appearances, one in the log header and one in the trace:
 		//   log_test.go:281: I0511 16:36:06.952398 02238 log_test.go:280] we want a stack trace here
 		//   ...
 		//   github.com/glog/glog_test.go:280 (0x41ba91)
 		//   ...
 		// We could be more precise but that would require knowing the details
 		// of the traceback format, which may not be dependable.
-		t.Fatal("got no trace back; glog is ", contents(infoLog))
+		t.Fatal("got no trace back; log is ", contents(infoLog))
 	}
 }
 

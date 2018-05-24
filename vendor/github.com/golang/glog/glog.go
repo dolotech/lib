@@ -33,9 +33,9 @@
 //	glog.V(2).Infoln("Processed", nItems, "elements")
 //
 // Log output is buffered and written periodically using Flush. Programs
-// should call Flush before exiting to guarantee all glog output is written.
+// should call Flush before exiting to guarantee all log output is written.
 //
-// By default, all glog statements write to files in a temporary directory.
+// By default, all log statements write to files in a temporary directory.
 // This package provides several flags that modify this behavior.
 // As a result, flag.Parse must be called before any logging is done.
 //
@@ -56,7 +56,7 @@
 //		When set to a file and line number holding a logging statement,
 //		such as
 //			-log_backtrace_at=gopherflakes.go:234
-//		a stack trace will be written to the Info glog whenever execution
+//		a stack trace will be written to the Info log whenever execution
 //		hits that statement. (Unlike with -vmodule, the ".go" must be
 //		present.)
 //	-v=0
@@ -88,15 +88,15 @@ import (
 	"time"
 )
 
-// severity identifies the sort of glog: info, warning etc. It also implements
+// severity identifies the sort of log: info, warning etc. It also implements
 // the flag.Value interface. The -stderrthreshold flag is of type severity and
 // should be modified only through the flag.Value interface. The values match
 // the corresponding constants in C++.
 type severity int32 // sync/atomic int32
 
-// These constants identify the glog levels in order of increasing severity.
-// A message written to a high-severity glog file is also written to each
-// lower-severity glog file.
+// These constants identify the log levels in order of increasing severity.
+// A message written to a high-severity log file is also written to each
+// lower-severity log file.
 const (
 	infoLog     severity = iota
 	warningLog
@@ -106,6 +106,8 @@ const (
 )
 
 const severityChar = "IWEF"
+
+//const severityChar = ""
 
 var severityName = []string{
 	infoLog:    "INFO",
@@ -396,9 +398,9 @@ type flushSyncWriter interface {
 }
 
 func init() {
-	flag.BoolVar(&logging.toStderr, "logtostderr", false, "glog to standard error instead of files")
-	flag.BoolVar(&logging.alsoToStderr, "alsologtostderr", false, "glog to standard error as well as files")
-	flag.Var(&logging.verbosity, "v", "glog level for V logs")
+	flag.BoolVar(&logging.toStderr, "logtostderr", false, "log to standard error instead of files")
+	flag.BoolVar(&logging.alsoToStderr, "alsologtostderr", false, "log to standard error as well as files")
+	flag.Var(&logging.verbosity, "v", "log level for V logs")
 	flag.Var(&logging.stderrThreshold, "stderrthreshold", "logs at or above this threshold go to stderr")
 	flag.Var(&logging.vmodule, "vmodule", "comma-separated list of pattern=N settings for file-filtered logging")
 	flag.Var(&logging.traceLocation, "log_backtrace_at", "when logging hits line file:N, emit a stack trace")
@@ -410,7 +412,7 @@ func init() {
 	go logging.flushDaemon()
 }
 
-// Flush flushes all pending glog I/O.
+// Flush flushes all pending log I/O.
 func Flush() {
 	logging.lockAndFlushAll()
 }
@@ -436,7 +438,7 @@ type loggingT struct {
 	// mu protects the remaining elements of this structure and is
 	// used to synchronize logging.
 	mu sync.Mutex
-	// file holds writer for each of the glog types.
+	// file holds writer for each of the log types.
 	file [numSeverity]flushSyncWriter
 	// pcs is used in V to avoid an allocation when computing the caller's PC.
 	pcs [1]uintptr
@@ -516,14 +518,13 @@ func (l *loggingT) putBuffer(b *buffer) {
 var timeNow = time.Now // Stubbed out for testing.
 
 /*
-header formats a glog header as defined by the C++ implementation.
+header formats a log header as defined by the C++ implementation.
 It returns a buffer containing the formatted header and the user's file and line number.
-The depth specifies how many stack frames above lives the source line to be identified in the glog message.
-
+The depth specifies how many stack frames above lives the source line to be identified in the log message.
 Log lines have this form:
 	Lmmdd hh:mm:ss.uuuuuu threadid file:line] msg...
 where the fields are defined as follows:
-	L                A single character, representing the glog level (eg 'I' for INFO)
+	L                A single character, representing the log level (eg 'I' for INFO)
 	mm               The month (zero padded; ie May is '05')
 	dd               The day (zero padded)
 	hh:mm:ss.uuuuuu  Time in hours, minutes and fractional seconds
@@ -546,7 +547,7 @@ func (l *loggingT) header(s severity, depth int) (*buffer, string, int) {
 	return l.formatHeader(s, file, line), file, line
 }
 
-// formatHeader formats a glog header using the provided file name and line number.
+// formatHeader formats a log header using the provided file name and line number.
 func (l *loggingT) formatHeader(s severity, file string, line int) *buffer {
 	now := timeNow()
 	if line < 0 {
@@ -580,13 +581,14 @@ func (l *loggingT) formatHeader(s severity, file string, line int) *buffer {
 	buf.WriteString(file)
 	buf.tmp[0] = ':'
 	n := buf.someDigits(1, line)
-	buf.tmp[n+1] = ']'
-	buf.tmp[n+2] = ' '
-	buf.Write(buf.tmp[:n+3])
+	//buf.tmp[n+1] = ']'
+	//buf.tmp[n+2] = ' '
+	buf.tmp[n+1] = ' '
+	buf.Write(buf.tmp[:n+2])
 	return buf
 }
 
-// Some custom tiny helper functions to print the glog header efficiently.
+// Some custom tiny helper functions to print the log header efficiently.
 
 const digits = "0123456789"
 
@@ -627,8 +629,8 @@ func (buf *buffer) someDigits(i, d int) int {
 	return copy(buf.tmp[i:], buf.tmp[j:])
 }
 
-func (l *loggingT) println(depth int, s severity, args ...interface{}) {
-	buf, file, line := l.header(s, depth)
+func (l *loggingT) println(s severity, args ...interface{}) {
+	buf, file, line := l.header(s, 0)
 	fmt.Fprintln(buf, args...)
 	l.output(s, buf, file, line, false)
 }
@@ -656,8 +658,8 @@ func (l *loggingT) printf(depth int, s severity, format string, args ...interfac
 }
 
 // printWithFileLine behaves like print but uses the provided file and line number.  If
-// alsoLogToStderr is true, the glog message always appears on standard error; it
-// will also appear in the glog file unless --logtostderr is set.
+// alsoLogToStderr is true, the log message always appears on standard error; it
+// will also appear in the log file unless --logtostderr is set.
 func (l *loggingT) printWithFileLine(s severity, file string, line int, alsoToStderr bool, args ...interface{}) {
 	buf := l.formatHeader(s, file, line)
 	fmt.Fprint(buf, args...)
@@ -667,7 +669,7 @@ func (l *loggingT) printWithFileLine(s severity, file string, line int, alsoToSt
 	l.output(s, buf, file, line, alsoToStderr)
 }
 
-// output writes the data to the glog files and releases the buffer.
+// output writes the data to the log files and releases the buffer.
 func (l *loggingT) output(s severity, buf *buffer, file string, line int, alsoToStderr bool) {
 	l.mu.Lock()
 	if l.traceLocation.isSet() {
@@ -691,7 +693,7 @@ func (l *loggingT) output(s severity, buf *buffer, file string, line int, alsoTo
 				l.exit(err)
 			}
 		}
-		switch s {
+		/*switch s {
 		case fatalLog:
 			l.file[fatalLog].Write(data)
 			fallthrough
@@ -701,9 +703,9 @@ func (l *loggingT) output(s severity, buf *buffer, file string, line int, alsoTo
 		case warningLog:
 			l.file[warningLog].Write(data)
 			fallthrough
-		case infoLog:
+		case infoLog:*/
 			l.file[infoLog].Write(data)
-		}
+		//}
 	}
 	if s == fatalLog {
 		// If we got here via Exit rather than Fatal, print no stacks.
@@ -781,11 +783,11 @@ func stacks(all bool) []byte {
 // would make its use clumsier.
 var logExitFunc func(error)
 
-// exit is called if there is trouble creating or writing glog files.
+// exit is called if there is trouble creating or writing log files.
 // It flushes the logs and exits the program; there's no point in hanging around.
 // l.mu is held.
 func (l *loggingT) exit(err error) {
-	fmt.Fprintf(os.Stderr, "glog: exiting because of error: %s\n", err)
+	fmt.Fprintf(os.Stderr, "log: exiting because of error: %s\n", err)
 	// If logExitFunc is set, we do that instead of exiting.
 	if logExitFunc != nil {
 		logExitFunc(err)
@@ -796,7 +798,7 @@ func (l *loggingT) exit(err error) {
 }
 
 // syncBuffer joins a bufio.Writer to its underlying file, providing access to the
-// file's Sync method and providing a wrapper for the Write method that provides glog
+// file's Sync method and providing a wrapper for the Write method that provides log
 // file rotation. There are conflicting methods, so the file cannot be embedded.
 // l.mu is held for all its methods.
 type syncBuffer struct {
@@ -851,18 +853,20 @@ func (sb *syncBuffer) rotateFile(now time.Time) error {
 	return err
 }
 
-// bufferSize sizes the buffer associated with each glog file. It's large
-// so that glog records can accumulate without the logging thread blocking
+// bufferSize sizes the buffer associated with each log file. It's large
+// so that log records can accumulate without the logging thread blocking
 // on disk I/O. The flushDaemon will block instead.
 const bufferSize = 256 * 1024
 
-// createFiles creates all the glog files for severity from sev down to infoLog.
+
+// createFiles creates all the log files for severity from sev down to infoLog.
 // l.mu is held.
 func (l *loggingT) createFiles(sev severity) error {
 	now := time.Now()
 	// Files are created in decreasing severity order, so as soon as we find one
 	// has already been created, we can stop.
-	for s := sev; s >= infoLog && l.file[s] == nil; s-- {
+	//for s := sev; s >= infoLog && l.file[s] == nil; s-- {
+	s:=infoLog
 		sb := &syncBuffer{
 			logger: l,
 			sev:    s,
@@ -871,13 +875,13 @@ func (l *loggingT) createFiles(sev severity) error {
 			return err
 		}
 		l.file[s] = sb
-	}
+	//}
 	return nil
 }
 
 const flushInterval = 30 * time.Second
 
-// flushDaemon periodically flushes the glog file buffers.
+// flushDaemon periodically flushes the log file buffers.
 func (l *loggingT) flushDaemon() {
 	for _ = range time.NewTicker(flushInterval).C {
 		l.lockAndFlushAll()
@@ -904,9 +908,9 @@ func (l *loggingT) flushAll() {
 	}
 }
 
-// CopyStandardLogTo arranges for messages written to the Go "glog" package's
+// CopyStandardLogTo arranges for messages written to the Go "log" package's
 // default logs to also appear in the Google logs for the named and lower
-// severities.  Subsequent changes to the standard glog's default output location
+// severities.  Subsequent changes to the standard log's default output location
 // or format may break this behavior.
 //
 // Valid names are "INFO", "WARNING", "ERROR", and "FATAL".  If the name is not
@@ -914,9 +918,9 @@ func (l *loggingT) flushAll() {
 func CopyStandardLogTo(name string) {
 	sev, ok := severityByName(name)
 	if !ok {
-		panic(fmt.Sprintf("glog.CopyStandardLogTo(%q): unrecognized severity name", name))
+		panic(fmt.Sprintf("log.CopyStandardLogTo(%q): unrecognized severity name", name))
 	}
-	// Set a glog format that captures the user's file and line:
+	// Set a log format that captures the user's file and line:
 	//   d.go:23: message
 	stdLog.SetFlags(stdLog.Lshortfile)
 	stdLog.SetOutput(logBridge(sev))
@@ -936,7 +940,7 @@ func (lb logBridge) Write(b []byte) (n int, err error) {
 	)
 	// Split "d.go:23: message" into "d.go", "23", and "message".
 	if parts := bytes.SplitN(b, []byte{':'}, 3); len(parts) != 3 || len(parts[0]) < 1 || len(parts[2]) < 1 {
-		text = fmt.Sprintf("bad glog format: %s", b)
+		text = fmt.Sprintf("bad log format: %s", b)
 	} else {
 		file = string(parts[0])
 		text = string(parts[2][1:]) // skip leading space
@@ -946,7 +950,7 @@ func (lb logBridge) Write(b []byte) (n int, err error) {
 			line = 1
 		}
 	}
-	// printWithFileLine with alsoToStderr=true, so standard glog messages
+	// printWithFileLine with alsoToStderr=true, so standard log messages
 	// always appear on standard error.
 	logging.printWithFileLine(severity(lb), file, line, true, text)
 	return len(b), nil
@@ -984,18 +988,18 @@ type Verbose bool
 
 // V reports whether verbosity at the call site is at least the requested level.
 // The returned value is a boolean of type Verbose, which implements Info, Infoln
-// and Infof. These methods will write to the Info glog if called.
+// and Infof. These methods will write to the Info log if called.
 // Thus, one may write either
-//	if glog.V(2) { glog.Info("glog this") }
+//	if glog.V(2) { glog.Info("log this") }
 // or
-//	glog.V(2).Info("glog this")
+//	glog.V(2).Info("log this")
 // The second form is shorter but the first is cheaper if logging is off because it does
 // not evaluate its arguments.
 //
-// Whether an individual call to V generates a glog record depends on the setting of
+// Whether an individual call to V generates a log record depends on the setting of
 // the -v and --vmodule flags; both are off by default. If the level in the call to
 // V is at least the value of -v, or of -vmodule for the source file containing the
-// call, the V call will glog.
+// call, the V call will log.
 func V(level Level) Verbose {
 	// This function tries hard to be cheap unless there's work to do.
 	// The fast path is two atomic loads and compares.
@@ -1037,7 +1041,7 @@ func (v Verbose) Info(args ...interface{}) {
 // See the documentation of V for usage.
 func (v Verbose) Infoln(args ...interface{}) {
 	if v {
-		logging.println(0, infoLog, args...)
+		logging.println(infoLog, args...)
 	}
 }
 
@@ -1049,28 +1053,25 @@ func (v Verbose) Infof(format string, args ...interface{}) {
 	}
 }
 
-// Info logs to the INFO glog.
+// Info logs to the INFO log.
 // Arguments are handled in the manner of fmt.Print; a newline is appended if missing.
 func Info(args ...interface{}) {
 	logging.print(infoLog, args...)
 }
 
-// InfoDepth acts as Info but uses depth to determine which call frame to glog.
+// InfoDepth acts as Info but uses depth to determine which call frame to log.
 // InfoDepth(0, "msg") is the same as Info("msg").
 func InfoDepth(depth int, args ...interface{}) {
 	logging.printDepth(infoLog, depth, args...)
 }
-func InfofDepth(depth int, format string, args ...interface{}) {
-	logging.printf(depth, infoLog, format, args...)
-}
 
-// Infoln logs to the INFO glog.
+// Infoln logs to the INFO log.
 // Arguments are handled in the manner of fmt.Println; a newline is appended if missing.
 func Infoln(args ...interface{}) {
-	logging.println(0, infoLog, args...)
+	logging.println(infoLog, args...)
 }
 
-// Infof logs to the INFO glog.
+// Infof logs to the INFO log.
 // Arguments are handled in the manner of fmt.Printf; a newline is appended if missing.
 func Infof(format string, args ...interface{}) {
 	logging.printf(0, infoLog, format, args...)
@@ -1082,7 +1083,7 @@ func Warning(args ...interface{}) {
 	logging.print(warningLog, args...)
 }
 
-// WarningDepth acts as Warning but uses depth to determine which call frame to glog.
+// WarningDepth acts as Warning but uses depth to determine which call frame to log.
 // WarningDepth(0, "msg") is the same as Warning("msg").
 func WarningDepth(depth int, args ...interface{}) {
 	logging.printDepth(warningLog, depth, args...)
@@ -1091,7 +1092,7 @@ func WarningDepth(depth int, args ...interface{}) {
 // Warningln logs to the WARNING and INFO logs.
 // Arguments are handled in the manner of fmt.Println; a newline is appended if missing.
 func Warningln(args ...interface{}) {
-	logging.println(0, warningLog, args...)
+	logging.println(warningLog, args...)
 }
 
 // Warningf logs to the WARNING and INFO logs.
@@ -1106,26 +1107,30 @@ func Error(args ...interface{}) {
 	logging.print(errorLog, args...)
 }
 
-// ErrorDepth acts as Error but uses depth to determine which call frame to glog.
+// ErrorDepth acts as Error but uses depth to determine which call frame to log.
 // ErrorDepth(0, "msg") is the same as Error("msg").
 func ErrorDepth(depth int, args ...interface{}) {
 	logging.printDepth(errorLog, depth, args...)
 }
 
-func ErrorfDepth(depth int, format string, args ...interface{}) {
-	logging.printf(depth, errorLog, format, args...)
-}
-
 // Errorln logs to the ERROR, WARNING, and INFO logs.
 // Arguments are handled in the manner of fmt.Println; a newline is appended if missing.
 func Errorln(args ...interface{}) {
-	logging.println(0, errorLog, args...)
+	logging.println(errorLog, args...)
 }
 
 // Errorf logs to the ERROR, WARNING, and INFO logs.
 // Arguments are handled in the manner of fmt.Printf; a newline is appended if missing.
 func Errorf(format string, args ...interface{}) {
 	logging.printf(0, errorLog, format, args...)
+}
+
+func ErrorL(format string, args ...interface{}) {
+	logging.printf(1, errorLog, format, args...)
+}
+
+func InfoL(format string, args ...interface{}) {
+	logging.printf(1, infoLog, format, args...)
 }
 
 // Fatal logs to the FATAL, ERROR, WARNING, and INFO logs,
@@ -1135,7 +1140,7 @@ func Fatal(args ...interface{}) {
 	logging.print(fatalLog, args...)
 }
 
-// FatalDepth acts as Fatal but uses depth to determine which call frame to glog.
+// FatalDepth acts as Fatal but uses depth to determine which call frame to log.
 // FatalDepth(0, "msg") is the same as Fatal("msg").
 func FatalDepth(depth int, args ...interface{}) {
 	logging.printDepth(fatalLog, depth, args...)
@@ -1145,7 +1150,7 @@ func FatalDepth(depth int, args ...interface{}) {
 // including a stack trace of all running goroutines, then calls os.Exit(255).
 // Arguments are handled in the manner of fmt.Println; a newline is appended if missing.
 func Fatalln(args ...interface{}) {
-	logging.println(0, fatalLog, args...)
+	logging.println(fatalLog, args...)
 }
 
 // Fatalf logs to the FATAL, ERROR, WARNING, and INFO logs,
@@ -1166,7 +1171,7 @@ func Exit(args ...interface{}) {
 	logging.print(fatalLog, args...)
 }
 
-// ExitDepth acts as Exit but uses depth to determine which call frame to glog.
+// ExitDepth acts as Exit but uses depth to determine which call frame to log.
 // ExitDepth(0, "msg") is the same as Exit("msg").
 func ExitDepth(depth int, args ...interface{}) {
 	atomic.StoreUint32(&fatalNoStacks, 1)
@@ -1176,7 +1181,7 @@ func ExitDepth(depth int, args ...interface{}) {
 // Exitln logs to the FATAL, ERROR, WARNING, and INFO logs, then calls os.Exit(1).
 func Exitln(args ...interface{}) {
 	atomic.StoreUint32(&fatalNoStacks, 1)
-	logging.println(0, fatalLog, args...)
+	logging.println(fatalLog, args...)
 }
 
 // Exitf logs to the FATAL, ERROR, WARNING, and INFO logs, then calls os.Exit(1).

@@ -30,15 +30,15 @@ import (
 	"time"
 )
 
-// MaxSize is the maximum size of a glog file in bytes.
-var MaxSize uint64 = 1024 * 1024 * 1800
+// MaxSize is the maximum size of a log file in bytes.
+var MaxSize uint64 = 1024 * 1024 * 80
 
-// logDirs lists the candidate directories for new glog files.
+// logDirs lists the candidate directories for new log files.
 var logDirs []string
 
 // If non-empty, overrides the choice of directory in which to write logs.
 // See createLogDirs for the full list of possible destinations.
-var logDir = flag.String("log_dir", "", "If non-empty, write glog files in this directory")
+var logDir = flag.String("log_dir", "", "If non-empty, write log files in this directory")
 
 func createLogDirs() {
 	if *logDir != "" {
@@ -78,10 +78,10 @@ func shortHostname(hostname string) string {
 	return hostname
 }
 
-// logName returns a new glog file name containing tag, with start time t, and
+// logName returns a new log file name containing tag, with start time t, and
 // the name for the symlink for tag.
 func logName(tag string, t time.Time) (name, link string) {
-	name = fmt.Sprintf("%s.%s.%s.glog.%s.%04d%02d%02d-%02d%02d%02d.%d",
+	name = fmt.Sprintf("%s.%s.%s.log.%s.%04d%02d%02d-%02d%02d%02d.%d",
 		program,
 		host,
 		userName,
@@ -98,14 +98,14 @@ func logName(tag string, t time.Time) (name, link string) {
 
 var onceLogDirs sync.Once
 
-// create creates a new glog file and returns the file and its filename, which
+// create creates a new log file and returns the file and its filename, which
 // contains tag ("INFO", "FATAL", etc.) and t.  If the file is created
 // successfully, create also attempts to update the symlink for that tag, ignoring
 // errors.
 func create(tag string, t time.Time) (f *os.File, filename string, err error) {
 	onceLogDirs.Do(createLogDirs)
 	if len(logDirs) == 0 {
-		return nil, "", errors.New("glog: no glog dirs")
+		return nil, "", errors.New("log: no log dirs")
 	}
 	name, link := logName(tag, t)
 	var lastErr error
@@ -120,5 +120,5 @@ func create(tag string, t time.Time) (f *os.File, filename string, err error) {
 		}
 		lastErr = err
 	}
-	return nil, "", fmt.Errorf("glog: cannot create glog: %v", lastErr)
+	return nil, "", fmt.Errorf("log: cannot create log: %v", lastErr)
 }
