@@ -867,16 +867,17 @@ func (l *loggingT) createFiles(sev severity) error {
 	// Files are created in decreasing severity order, so as soon as we find one
 	// has already been created, we can stop.
 	//for s := sev; s >= infoLog && l.file[s] == nil; s-- {
-	s := infoLog
-	sb := &syncBuffer{
-		logger: l,
-		sev:    s,
+	if l.file[infoLog] == nil {
+		s := infoLog
+		sb := &syncBuffer{
+			logger: l,
+			sev:    s,
+		}
+		if err := sb.rotateFile(now); err != nil {
+			return err
+		}
+		l.file[s] = sb
 	}
-	if err := sb.rotateFile(now); err != nil {
-		return err
-	}
-	l.file[s] = sb
-	//}
 	return nil
 }
 
