@@ -14,16 +14,28 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"fmt"
-	"github.com/golang/glog"
 	"math"
 	"math/rand"
-	"net"
-	"regexp"
+	"os"
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 )
+
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
+func PathExists(path string) bool {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true
+	}
+	if os.IsNotExist(err) {
+		return false
+	}
+	return false
+}
 
 // Auth
 func GetAuth() []rune {
@@ -34,106 +46,6 @@ func GetAuth() []rune {
 		list = append(list, rune(ran))
 	}
 	return list
-}
-
-// 验证是否邮箱
-func EmailRegexp(mail string) bool {
-	b := false
-	if mail != "" {
-		reg := regexp.MustCompile(`^([a-zA-Z0-9_-])+@([a-zA-Z0-9_-])+(\.[a-zA-Z0-9_-]+)$`)
-		b = reg.FindString(mail) != ""
-	}
-	return b
-}
-
-// 验证是否手机
-func PhoneRegexp(phone string) bool {
-	b := false
-	if phone != "" {
-		reg := regexp.MustCompile(`^(86)*0*1\d{10}$`)
-		b = reg.FindString(phone) != ""
-	}
-	return b
-}
-
-// 验证账号是否合法
-func AccountRegexp(account string) bool {
-	b := false
-	if account != "" {
-		reg := regexp.MustCompile(`^[a-zA-Z0-9]{6,8}$`)
-		b = reg.FindString(account) != ""
-	}
-	return b
-}
-
-// 数值类型转成点分结构的IP地址
-// eg: t.Log((InetTontoa(3232235966).String()))
-func InetTontoa(ipnr uint32) string {
-	var bytes [4]byte
-	bytes[0] = byte(ipnr & 0xFF)
-	bytes[1] = byte((ipnr >> 8) & 0xFF)
-	bytes[2] = byte((ipnr >> 16) & 0xFF)
-	bytes[3] = byte((ipnr >> 24) & 0xFF)
-	return net.IPv4(bytes[3], bytes[2], bytes[1], bytes[0]).String()
-}
-
-// 点分结构的IP地址转成数值类型
-// eg: t.Log((InetToaton("192.168.1.190")))
-func InetToaton(ipnr string) uint32 {
-	bits := strings.Split(ipnr, ".")
-
-	b0, _ := strconv.Atoi(bits[0])
-	b1, _ := strconv.Atoi(bits[1])
-	b2, _ := strconv.Atoi(bits[2])
-	b3, _ := strconv.Atoi(bits[3])
-
-	var sum uint32
-
-	sum += uint32(b0) << 24
-	sum += uint32(b1) << 16
-	sum += uint32(b2) << 8
-	sum += uint32(b3)
-
-	return sum
-}
-
-// 验证只能由数字字母下划线组成的5-17位密码字符串
-func AalidataPwd(name string) (b bool) {
-	if name != "" {
-		//reg := regexp.MustCompile(`^[a-zA-Z0-9_]*$`)
-		reg := regexp.MustCompile(`^[a-zA-Z_]\w{5,17}$`)
-		b = reg.FindString(name) != ""
-	}
-	return
-}
-
-// 不可见字符,用于用户提交的字符过滤分别对应为：,\0   \t  _  space  "  ` ctrl+z \n \r  `  %   \  ,
-var IllegalNameRune = [13]rune{0x00, 0x09, 0x5f, 0x20, 0x22, 0x60, 0x1a, 0x0a, 0x0d, 0x27, 0x25, 0x5c, 0x2c}
-
-var hasIllegalNameRune = func(c rune) bool {
-	for _, v := range IllegalNameRune {
-		if v == c {
-			return true
-		}
-	}
-	return false
-}
-
-// 限制最大字符数，检测不可见字符
-// maxcount 限制的最大字符数，1个中文=2个英文
-func LegalName(name string, maxcount int) bool {
-	if !utf8.ValidString(name) {
-		return false
-	}
-
-	num := len([]rune(name)) + len([]byte(name))
-	result := float64(num) / 4.0
-	sum := int(result + 0.99)
-
-	if sum > maxcount*2 {
-		return false
-	}
-	return strings.IndexFunc(name, hasIllegalNameRune) == -1
 }
 
 /**
@@ -265,9 +177,9 @@ func UseridCovToInvate(userid string) uint32 {
 	return uint32(code)
 }
 
-var base = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"}
-var flipbase = flip(base)
-var baselen = len(base)
+var base64String = []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"}
+var flipbase = flip(base64String)
+var baselen = len(base64String)
 
 func Base62encode(num uint64) string {
 	baseStr := ""
@@ -277,7 +189,7 @@ func Base62encode(num uint64) string {
 		}
 
 		i := num % uint64(baselen)
-		baseStr += base[i]
+		baseStr += base64String[i]
 		num = (num - i) / uint64(baselen)
 	}
 	return baseStr
@@ -397,118 +309,6 @@ func StringAdd(numStr string) string {
 	return string(runeArr)
 }
 
-//-----------------------------------------------------------------
-const FORMAT string = "2006-01-02 15:04:05"
-const FORMATDATA string = "2006-01-02 "
-
-// 获取当前时间截
-func TimestampNano() int64 {
-	return time.Now().UnixNano()
-}
-
-// 获取当前时间截
-func Timestamp() int64 {
-	return time.Now().Unix()
-}
-
-// 获取本周六零点时间截
-func TimestampSaturday() int64 {
-	now := time.Now()
-	unix := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local).Unix()
-	return unix + int64(time.Saturday-now.Weekday())*86400
-}
-
-// 获取本地当天零点时间截
-func TimestampToday() int64 {
-	return time.Date(Year(), Month(), Day(), 0, 0, 0, 0, time.Local).Unix()
-}
-func TimestampTodayStr() string {
-	t := time.Date(Year(), Month(), Day(), 0, 0, 0, 0, time.Local).Unix()
-	return strconv.FormatInt(t, 10)
-}
-
-// 获取本地昨天零点时间截
-func TimestampYesterday() int64 {
-	return TimestampToday() - 86400
-}
-
-// 获取本地明天零点时间截
-func TimestampTomorrow() int64 {
-	return TimestampToday() + 86400
-}
-
-// 获取当前年
-func Year() int {
-	return time.Now().Year()
-}
-
-// 获取当前月
-func Month() time.Month {
-	return time.Now().Month()
-}
-
-// 获取当前天
-func Day() int {
-	return time.Now().Day()
-}
-
-// 获取当前周
-func Weekday() time.Weekday {
-	return time.Now().Weekday()
-}
-
-// 获取指定时间截的年
-func Unix2Year(t int64) int {
-	return time.Unix(t, 0).Year()
-}
-
-// 获取指定时间截的月
-func Unix2Month(t int64) time.Month {
-	return time.Unix(t, 0).Month()
-}
-
-// 获取指定时间截的天
-func Unix2Day(t int64) int {
-	return time.Unix(t, 0).Day()
-}
-
-// 时间戳转str格式化时间
-func Unix2Str(t int64) string {
-	return time.Unix(t, 0).Format(FORMAT)
-}
-
-// str格式当前日期
-func DateStr() string {
-	return time.Now().Format(FORMATDATA)
-}
-
-// str格式化时间转时间戳
-func Str2Unix(t string) (int64, error) {
-	the_time, err := time.Parse(FORMAT, t)
-	if err == nil {
-		return the_time.Unix(), err
-	}
-	return 0, err
-}
-
-// 获取指定年月的天数
-func MonthDays(year int, month int) (days int) {
-	if month != 2 {
-		if month == 4 || month == 6 || month == 9 || month == 11 {
-			days = 30
-		} else {
-			days = 31
-		}
-	} else {
-		if ((year%4) == 0 && (year%100) != 0) || (year%400) == 0 {
-			days = 29
-		} else {
-			days = 28
-		}
-	}
-	return
-}
-
 // md5 加密
 // func Md5(text string) string {
 // 	hashMd5 := md5.New()
@@ -543,14 +343,12 @@ func SleepRand64(second int64) {
 
 // 用于调式显示掩码
 func BitOr(v int64) {
-	glog.Info("bit set is:")
 	var s string
 	for i := 1; i <= 64; i++ {
 		if v&(1<<uint(i)) > 0 {
 			s = fmt.Sprintf("%s %d", s, i)
 		}
 	}
-	glog.Infoln(s)
 }
 
 func Byte2uint32(in []byte) []uint32 {
@@ -623,7 +421,6 @@ func InSlice(ms uint32, arr []uint32) bool {
 func Truncate6Words(origin string) string {
 	newString := origin
 	nameRune := []rune(origin)
-	glog.Errorf("len is %v", len(nameRune))
 	if len(nameRune) > 6 {
 		newString = string(nameRune[:6])
 	}
